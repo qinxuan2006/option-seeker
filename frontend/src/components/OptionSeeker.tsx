@@ -998,7 +998,7 @@ const OptionSeeker: React.FC = () => {
         <Card className="glass-card">
           {loading ? (
             <div className="flex justify-center items-center py-20">
-              <Spin size="large" tip="正在分析期权数据..." />
+              <Spin size="large" />
             </div>
           ) : options.length > 0 ? (
             <>
@@ -1013,7 +1013,7 @@ const OptionSeeker: React.FC = () => {
                 key={options.length + filteredOptions.length}
                 columns={columns}
                 dataSource={filteredOptions}
-                rowKey={(record) => `${record.symbol}-${record.strike}-${record.expiry_date}`}
+                rowKey={(record) => `${record.symbol}-${record.option_type}-${record.strike}-${record.expiry_date}`}
                 scroll={{ x: 1200 }}
                 pagination={{
                   pageSize: 20,
