@@ -65,14 +65,19 @@ export LonGBridge_APP_SECRET="your_app_secret"
 export LonGBridge_ACCESS_TOKEN="your_access_token"
 ```
 
+## 环境要求
+
+- **Python**: >= 3.7
+- **Node.js**: >= 18
+
 ## 安装与启动
 
 ### 1. 启动后端
 
 ```bash
 cd backend
-py -3.14 -m pip install -r requirements.txt
-py -3.14 -m uvicorn main:app --host 0.0.0.0 --port 8000
+pip install -r requirements.txt
+python -m uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
 ### 2. 启动前端
