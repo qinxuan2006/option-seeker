@@ -52,17 +52,21 @@ option-seeker/
 **Windows 用户**（推荐通过「计算机属性」→「环境变量」配置）：
 
 ```
-LonGBridge_APP_KEY=your_app_key
-LonGBridge_APP_SECRET=your_app_secret
-LonGBridge_ACCESS_TOKEN=your_access_token
+LONGPORT_APP_KEY=your_app_key
+LONGPORT_APP_SECRET=your_app_secret
+LONGPORT_ACCESS_TOKEN=your_access_token
+LONGPORT_REGION=cn          # 可选: cn, hk
+LONGPORT_ENABLE_OVERNIGHT=false  # 可选: true, false
 ```
 
 **Linux / macOS 用户**：
 
 ```bash
-export LonGBridge_APP_KEY="your_app_key"
-export LonGBridge_APP_SECRET="your_app_secret"
-export LonGBridge_ACCESS_TOKEN="your_access_token"
+export LONGPORT_APP_KEY="your_app_key"
+export LONGPORT_APP_SECRET="your_app_secret"
+export LONGPORT_ACCESS_TOKEN="your_access_token"
+export LONGPORT_REGION="cn"          # 可选: cn, hk
+export LONGPORT_ENABLE_OVERNIGHT="false"  # 可选: true, false
 ```
 
 ## 环境要求
