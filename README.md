@@ -81,7 +81,7 @@ export LONGPORT_ENABLE_OVERNIGHT="false"  # 可选: true, false
 ```bash
 cd backend
 pip install -r requirements.txt
-python -m uvicorn main:app --host 0.0.0.0 --port 8000
+python -m uvicorn main:app --host 127.0.0.1 --port 8000
 ```
 
 ### 2. 启动前端
