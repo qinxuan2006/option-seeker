@@ -108,12 +108,21 @@ class OptionAnalyzer:
         ctx = self._get_context()
         if ctx is None:
             return []
-            
+
         formatted_symbol = self._format_symbol(symbol)
-        
+
         try:
             expiry_dates = ctx.option_chain_expiry_date_list(formatted_symbol)
-            return expiry_dates if expiry_dates else []
+            # 转换为字符串格式 "YYYYMMDD"
+            result = []
+            for d in (expiry_dates or []):
+                if isinstance(d, date):
+                    result.append(d.strftime("%Y%m%d"))
+                elif isinstance(d, str):
+                    result.append(d.replace("-", ""))
+                else:
+                    result.append(str(d))
+            return result
         except Exception as e:
             print(f"Error fetching option expiry dates for {symbol}: {e}")
             return []
@@ -152,24 +161,23 @@ class OptionAnalyzer:
         ctx = self._get_context()
         if ctx is None:
             return {}
-            
+
         if not option_symbols:
             return {}
-        
+
         try:
             quotes = ctx.option_quote(option_symbols)
             result = {}
             for quote in quotes:
-                option_extend = quote.option_extend
                 result[quote.symbol] = {
                     "last_done": float(quote.last_done) if quote.last_done else 0,
                     "prev_close": float(quote.prev_close) if quote.prev_close else 0,
                     "volume": quote.volume or 0,
-                    "implied_volatility": float(option_extend.implied_volatility) if option_extend and option_extend.implied_volatility else 0,
-                    "open_interest": option_extend.open_interest if option_extend else 0,
-                    "strike_price": float(option_extend.strike_price) if option_extend and option_extend.strike_price else 0,
-                    "expiry_date": option_extend.expiry_date if option_extend else "",
-                    "direction": option_extend.direction if option_extend else ""
+                    "implied_volatility": float(quote.implied_volatility) if quote.implied_volatility else 0,
+                    "open_interest": quote.open_interest if quote.open_interest else 0,
+                    "strike_price": float(quote.strike_price) if quote.strike_price else 0,
+                    "expiry_date": str(quote.expiry_date) if quote.expiry_date else "",
+                    "direction": quote.direction if quote.direction else ""
                 }
             return result
         except Exception as e:
@@ -269,103 +277,115 @@ class OptionAnalyzer:
     def analyze_options(
         self,
         symbol: str,
-        option_type: OptionType,
-        max_expiry_days: int = 60,
+        min_call_price_diff: float = 0.0,
+        max_call_price_diff: float = 50.0,
+        min_put_price_diff: float = 0.0,
+        max_put_price_diff: float = 50.0,
+        min_expiry_days: int = 0,
+        max_expiry_days: int = 180,
         min_annual_return: float = 0.0,
         max_annual_return: float = 100.0,
         min_premium: float = 0.0,
         max_premium: float = 10000.0,
-        min_price_diff: float = 0.0,
-        max_price_diff: float = 50.0
-    ) -> Tuple[Optional[float], List[OptionAnalysis]]:
-        
+        max_results: int = 500
+    ) -> Tuple[Optional[float], List[OptionAnalysis], bool]:
+
         ctx = self._get_context()
         if ctx is None:
             print(f"LongPort not initialized: {self._init_error}")
-            return None, []
-        
+            return None, [], False
+
         try:
             current_price = self.get_current_price(symbol)
-            
+
             if not current_price:
                 print(f"Could not get current price for {symbol}")
-                return None, []
-            
+                return None, [], False
+
             today = datetime.now().date()
+            min_expiry = today + timedelta(days=min_expiry_days)
             max_expiry = today + timedelta(days=max_expiry_days)
-            
+
             expiry_dates = self.get_option_expiry_dates(symbol)
-            
+
             if not expiry_dates:
                 print(f"No option expiry dates found for {symbol}")
-                return current_price, []
-            
+                return current_price, [], False
+
             options_list = []
-            
+
             for expiry_str in expiry_dates:
                 try:
                     year = int(expiry_str[:4])
                     month = int(expiry_str[4:6])
                     day = int(expiry_str[6:8])
                     expiry_date = date(year, month, day)
-                    
-                    if expiry_date > max_expiry:
+
+                    if expiry_date < min_expiry or expiry_date > max_expiry:
                         continue
-                    
+
                     days_to_expiry = (expiry_date - today).days
                     if days_to_expiry <= 0:
                         continue
-                    
+
                     chain = self.get_option_chain_by_date(symbol, expiry_str)
                     if not chain:
                         continue
-                    
-                    option_symbols = []
+
+                    # 获取所有call和put的symbol
+                    call_symbols = [item["call_symbol"] for item in chain if item.get("call_symbol")]
+                    put_symbols = [item["put_symbol"] for item in chain if item.get("put_symbol")]
+
+                    # 批量获取所有期权报价
+                    all_symbols = call_symbols + put_symbols
+                    if not all_symbols:
+                        continue
+                    option_quotes = self.get_option_quotes(all_symbols)
+
+                    # 处理CALL期权
                     for item in chain:
-                        if option_type == OptionType.CALL:
-                            option_symbols.append(item["call_symbol"])
-                        else:
-                            option_symbols.append(item["put_symbol"])
-                    
-                    option_quotes = self.get_option_quotes(option_symbols[:50])
-                    
-                    for item in chain:
-                        if option_type == OptionType.CALL:
-                            opt_symbol = item["call_symbol"]
-                        else:
-                            opt_symbol = item["put_symbol"]
-                        
-                        if opt_symbol not in option_quotes:
+                        call_symbol = item.get("call_symbol")
+                        if not call_symbol or call_symbol not in option_quotes:
                             continue
-                        
-                        quote = option_quotes[opt_symbol]
+
+                        quote = option_quotes[call_symbol]
                         premium = quote["last_done"]
-                        
+
                         if premium <= 0:
                             continue
-                        
+
                         strike = item["strike_price"]
                         price_diff = self.calculate_price_diff_percent(current_price, strike)
-                        
+
+                        # 筛选CALL的价差
+                        if price_diff < min_call_price_diff or price_diff > max_call_price_diff:
+                            continue
+
                         iv = quote["implied_volatility"]
                         itm_prob = self.calculate_itm_probability(
-                            current_price, strike, days_to_expiry, iv, option_type.value
+                            current_price, strike, days_to_expiry, iv, "call"
                         )
-                        
+
                         annual_return = self.calculate_annual_return(premium, strike, days_to_expiry)
-                        
-                        breakeven = strike + premium if option_type == OptionType.CALL else strike - premium
-                        
+
+                        # 筛选年化收益和权利金
+                        if annual_return < min_annual_return or annual_return > max_annual_return:
+                            continue
+                        if premium < min_premium or premium > max_premium:
+                            continue
+
+                        breakeven = strike + premium
+
                         volume = quote["volume"]
                         open_interest = quote["open_interest"]
-                        
+
                         rec_score = self.calculate_recommendation_score(
                             annual_return, itm_prob, price_diff, volume, open_interest
                         )
-                        
+
                         option = OptionAnalysis(
                             symbol=symbol.upper(),
-                            option_type=option_type.value,
+                            option_type="call",
                             strike=round(strike, 2),
                             expiry_date=expiry_date,
                             days_to_expiry=days_to_expiry,
@@ -381,25 +401,85 @@ class OptionAnalyzer:
                             recommendation_score=rec_score
                         )
                         options_list.append(option)
-                        
+
+                    # 处理PUT期权
+                    for item in chain:
+                        put_symbol = item.get("put_symbol")
+                        if not put_symbol or put_symbol not in option_quotes:
+                            continue
+
+                        quote = option_quotes[put_symbol]
+                        premium = quote["last_done"]
+
+                        if premium <= 0:
+                            continue
+
+                        strike = item["strike_price"]
+                        price_diff = self.calculate_price_diff_percent(current_price, strike)
+
+                        # 筛选PUT的价差
+                        if price_diff < min_put_price_diff or price_diff > max_put_price_diff:
+                            continue
+
+                        iv = quote["implied_volatility"]
+                        itm_prob = self.calculate_itm_probability(
+                            current_price, strike, days_to_expiry, iv, "put"
+                        )
+
+                        annual_return = self.calculate_annual_return(premium, strike, days_to_expiry)
+
+                        # 筛选年化收益和权利金
+                        if annual_return < min_annual_return or annual_return > max_annual_return:
+                            continue
+                        if premium < min_premium or premium > max_premium:
+                            continue
+
+                        breakeven = strike - premium
+
+                        volume = quote["volume"]
+                        open_interest = quote["open_interest"]
+
+                        rec_score = self.calculate_recommendation_score(
+                            annual_return, itm_prob, price_diff, volume, open_interest
+                        )
+
+                        option = OptionAnalysis(
+                            symbol=symbol.upper(),
+                            option_type="put",
+                            strike=round(strike, 2),
+                            expiry_date=expiry_date,
+                            days_to_expiry=days_to_expiry,
+                            current_price=current_price,
+                            premium=round(premium, 2),
+                            annual_return=round(annual_return, 2),
+                            price_diff_percent=round(price_diff, 2),
+                            itm_probability=round(itm_prob, 2),
+                            breakeven=round(breakeven, 2),
+                            volume=volume,
+                            open_interest=open_interest,
+                            implied_volatility=round(iv * 100, 2),
+                            recommendation_score=rec_score
+                        )
+                        options_list.append(option)
+
                 except Exception as e:
                     print(f"Error processing expiry {expiry_str}: {e}")
                     continue
-            
-            filtered_options = [
-                opt for opt in options_list
-                if min_annual_return <= opt.annual_return <= max_annual_return
-                and min_premium <= opt.premium <= max_premium
-                and min_price_diff <= opt.price_diff_percent <= max_price_diff
-            ]
-            
-            filtered_options.sort(key=lambda x: x.recommendation_score, reverse=True)
-            
-            return current_price, filtered_options
-            
+
+            # 按到期天数升序、推荐分数降序排序
+            options_list.sort(key=lambda x: (x.days_to_expiry, -x.recommendation_score))
+
+            # 如果超过max_results，按天数升序截取（保证日期就近优先）
+            truncated = False
+            if len(options_list) > max_results:
+                truncated = True
+                options_list = options_list[:max_results]
+
+            return current_price, options_list, truncated
+
         except Exception as e:
             print(f"Error analyzing options for {symbol}: {e}")
-            return None, []
+            return None, [], False
 
     def _get_period(self, period_type: PeriodType) -> Period:
         period_map = {

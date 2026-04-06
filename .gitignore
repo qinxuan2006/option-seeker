@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyc
+.pytest_cache/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+install.log
+
+# Test files
+test_*.py
+start-*.bat
+
+# Claude
+.agents/
+.claude/
+skills-lock.json
+
+# Environment
+.env
+.env.local

@@ -22,6 +22,7 @@ export interface AnalysisResponse {
   options: OptionAnalysis[];
   total_count: number;
   filtered_count: number;
+  truncated?: boolean;
 }
 
 export interface StockInfo {
@@ -34,14 +35,17 @@ export interface StockInfo {
 
 export interface AnalysisRequest {
   symbol: string;
-  option_type: 'call' | 'put';
+  min_call_price_diff: number;
+  max_call_price_diff: number;
+  min_put_price_diff: number;
+  max_put_price_diff: number;
+  min_expiry_days: number;
   max_expiry_days: number;
   min_annual_return: number;
   max_annual_return: number;
   min_premium: number;
   max_premium: number;
-  min_price_diff: number;
-  max_price_diff: number;
+  max_results: number;
 }
 
 export interface FilterState {

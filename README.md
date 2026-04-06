@@ -1,97 +1,107 @@
-# Option Seeker - 港美股期权分析平台
+# Option Seeker - 美股期权分析平台
 
-一个现代化的港美股期权筛选和分析平台，帮助投资者找到最优期权策略。
+一个现代化的美股期权筛选与多维度量化分析平台，帮助投资者快速找到符合筛选条件的期权合约。
+
+A modern US stock options screening and multi-dimensional quantitative analysis platform.
+
+![Option Seeker 界面截图](imgs/screenshot.png)
 
 ## 功能特点
 
-- 支持港美股期权数据查询
-- 智能期权推荐算法
-- 年化收益率计算
-- 行权概率分析
-- 实时筛选功能
-- 美观的现代化界面
+- **实时行情** - 通过长桥券商 API 获取美股实时报价与期权链数据
+- **多维度筛选** - 按年化收益率、权利金、价差百分比（绝对值）、到期天数、期权类型（Call/Put）、价值状态（ITM/OTM）灵活筛选
+- **智能推荐** - 综合年化收益、行权概率、价差、成交量等因素计算推荐分数
+- **K线图表** - 支持多种周期（1分钟/5分钟/15分钟/30分钟/60分钟/日/周/月）的 K 线走势查看
+- **ITM 概率分析** - 基于 Black-Scholes 模型计算期权到期时处于价内的概率
+- **盈亏平衡点计算** - 自动计算看涨/看跌期权的盈亏平衡价格
+- **暗色主题** - 现代化暗色模式界面设计，保护眼睛
 
-## 技术栈
+## 目录结构
 
-### 后端
-- Python 3.7+
-- Flask (Web 框架)
-- yfinance (期权数据)
-- pandas, numpy, scipy
+```
+option-seeker/
+├── backend/
+│   ├── main.py              # FastAPI 入口
+│   ├── requirements.txt     # Python 依赖
+│   ├── models/              # 数据模型
+│   ├── routers/             # API 路由
+│   └── services/            # 业务逻辑（期权分析）
+├── frontend/
+│   ├── src/
+│   │   ├── components/      # React 组件
+│   │   ├── services/        # API 调用
+│   │   └── types/           # TypeScript 类型
+│   └── package.json
+└── README.md
+```
 
-### 前端
-- React 18
-- TypeScript
-- Vite
-- Ant Design
-- Tailwind CSS
+## 长桥券商配置
 
-## 快速开始
+本项目使用[长桥证券 OpenAPI](https://open.longportapp.com/)获取美股期权数据（国内用户可访问 [open.longportapp.cn](https://open.longportapp.cn/)）。
 
-### ⚠️ 重要提示：Python 版本
+### 1. 开通权限
 
-当前你的环境是 Python 3.7，建议升级到 **Python 3.10 或 3.11** 以获得最佳体验。
+- 长桥证券账户（支持港美股）
+- 开通「美股期权」OpenAPI 权限
+  - 登录 [长桥开放平台](https://open.longportapp.com/)（国内用户可访问 [open.longportapp.cn](https://open.longportapp.cn/)）
+  - 进入「我的 API」→「权限管理」
+  - 申请开通 US Option 相关权限
 
-升级 Python：
-1. 访问 https://www.python.org/downloads/ 下载 Python 3.10 或 3.11
-2. 安装时勾选 "Add Python to PATH"
-3. 重启终端
+### 2. 配置环境变量
 
-### 安装依赖并启动
+**Windows 用户**（推荐通过「计算机属性」→「环境变量」配置）：
 
-#### 方式一：一键启动 (Windows)
-双击 `start-all.bat` 文件即可同时启动前后端服务。
+```
+LonGBridge_APP_KEY=your_app_key
+LonGBridge_APP_SECRET=your_app_secret
+LonGBridge_ACCESS_TOKEN=your_access_token
+```
 
-#### 方式二：分别启动
+**Linux / macOS 用户**：
 
-##### 启动后端
+```bash
+export LonGBridge_APP_KEY="your_app_key"
+export LonGBridge_APP_SECRET="your_app_secret"
+export LonGBridge_ACCESS_TOKEN="your_access_token"
+```
+
+## 安装与启动
+
+### 1. 启动后端
+
 ```bash
 cd backend
-pip install -r requirements.txt
-python main.py
+py -3.14 -m pip install -r requirements.txt
+py -3.14 -m uvicorn main:app --host 0.0.0.0 --port 8000
 ```
-后端服务将运行在 http://localhost:8000
 
-##### 启动前端
+### 2. 启动前端
+
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
-前端服务将运行在 http://localhost:3000
 
-## 使用说明
-
-1. 在首页输入股票代码（如 AAPL, TSLA, GOOGL 等）
-2. 选择期权类型（看涨/看跌）
-3. 设置最远到期日
-4. 点击"开始分析"按钮
-5. 使用筛选条件过滤结果
-6. 查看推荐值排序的期权列表
+前端启动后访问 http://localhost:3000
 
 ## 核心指标说明
 
-- **年化收益**: 基于权利金和持有期计算的年化收益率
-- **行权概率**: 期权到期时处于价内的概率（基于Black-Scholes模型）
-- **价差百分比**: 当前股价与行权价的差距百分比
-- **推荐值**: 综合多个因素计算的推荐分数
+| 指标 | 说明 |
+|------|------|
+| **年化收益率** | 基于权利金与持有期计算的年化收益百分比 |
+| **行权概率 (ITM)** | 期权到期时处于价内（实值）的概率，基于 Black-Scholes 模型 |
+| **价差百分比** | 当前股价与行权价的差距百分比（绝对值），行权价低于当前价显示负值，高于显示正值 |
+| **权利金** | 期权当前市场价格 |
+| **盈亏平衡** | 期权到期时刚好回本的标的股价 |
+| **隐含波动率 (IV)** | 市场对未来波动率的预期 |
+| **推荐值** | 综合年化收益、ITM 概率、价差、流动性计算的推荐分数 |
 
-## 注意事项
+## 使用限制
 
-- 所有数据分析均不构成投资建议
-- 数据来源于公开市场数据，可能存在延迟
-- 仅供学习和研究使用
-- 建议使用 Python 3.10+
-
-## API 文档
-
-启动后端后访问 http://localhost:8000/ 查看 API 端点：
-
-- `GET /` - API 信息
-- `GET /health` - 健康检查
-- `GET /api/stock/{symbol}` - 获取股票信息
-- `GET /api/search/{query}` - 搜索股票
-- `POST /api/analyze` - 分析期权
+- 由于券商 API 频率限制，部分远期期权合约可能未返回，请缩小筛选范围后重试
+- 数据存在一定延迟，不构成投资建议
+- 仅供学习研究使用，投资有风险
 
 ## License
 

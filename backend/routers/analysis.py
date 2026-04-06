@@ -42,29 +42,33 @@ async def get_candlesticks(
 
 @router.post("/analyze", response_model=AnalysisResponse)
 async def analyze_options(request: AnalysisRequest):
-    current_price, options = option_analyzer.analyze_options(
+    current_price, options, truncated = option_analyzer.analyze_options(
         symbol=request.symbol.upper(),
-        option_type=request.option_type,
+        min_call_price_diff=request.min_call_price_diff,
+        max_call_price_diff=request.max_call_price_diff,
+        min_put_price_diff=request.min_put_price_diff,
+        max_put_price_diff=request.max_put_price_diff,
+        min_expiry_days=request.min_expiry_days,
         max_expiry_days=request.max_expiry_days,
         min_annual_return=request.min_annual_return,
         max_annual_return=request.max_annual_return,
         min_premium=request.min_premium,
         max_premium=request.max_premium,
-        min_price_diff=request.min_price_diff,
-        max_price_diff=request.max_price_diff
+        max_results=request.max_results
     )
-    
+
     if current_price is None:
         raise HTTPException(status_code=404, detail=f"Could not fetch data for {request.symbol}")
-    
+
     total_count = len(options)
-    
+
     return AnalysisResponse(
         symbol=request.symbol.upper(),
         current_price=current_price,
         options=options,
         total_count=total_count,
-        filtered_count=len(options)
+        filtered_count=len(options),
+        truncated=truncated
     )
 
 
