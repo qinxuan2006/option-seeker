@@ -379,8 +379,8 @@ const OptionSeeker: React.FC = () => {
     },
     {
       title: (
-        <Tooltip title="年化收益率 = (权利金/行权价) ^ (365/天数) - 1">
-          年化收益 <InfoCircleOutlined className="ml-1" />
+        <Tooltip title="卖方年化收益率 = ((1 + 权利金/行权价) ^ (365/天数) - 1) × 100%">
+          年化收益(卖方) <InfoCircleOutlined className="ml-1" />
         </Tooltip>
       ),
       dataIndex: 'annual_return',
