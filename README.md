@@ -49,7 +49,9 @@ option-seeker/
 
 ### 2. 配置环境变量
 
-[快速开始](https://open.longbridge.com/zh-CN/docs/getting-started)或[国内域名](https://open.longbridge.com/zh-CN/docs/getting-started)
+- [快速开始](https://open.longbridge.com/zh-CN/docs/getting-started)或[国内域名](https://open.longbridge.com/zh-CN/docs/getting-started)
+  - 代码中使用传统 API Key 模式（LONGPORT_*,  LONGBRIDGE_*应该也能识别），OAuth 2.0则需自行修改后端代码
+
 
 ## 环境要求
 
