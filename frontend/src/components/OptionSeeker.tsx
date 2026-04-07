@@ -26,7 +26,9 @@ import {
   PercentageOutlined,
   LineChartOutlined,
   SettingOutlined,
+  ArrowLeftOutlined,
 } from '@ant-design/icons';
+import { Link } from 'react-router-dom';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import { analysisApi, stockApi } from '../services/api';
@@ -481,7 +483,17 @@ const OptionSeeker: React.FC = () => {
       {/* 导航栏 */}
       <header className="navbar px-6 py-4">
         <div className="flex items-center justify-between max-w-7xl mx-auto">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
+            <Link to="/">
+              <Button
+                type="text"
+                icon={<ArrowLeftOutlined className="text-gray-400" />}
+                className="!rounded-lg hover:!bg-indigo-500/20 group"
+              >
+                <span className="text-gray-400 group-hover:!text-white ml-1 transition-colors">返回</span>
+              </Button>
+            </Link>
+            <div className="w-px h-6 bg-gray-700" />
             <LineChartOutlined className="text-2xl text-blue-400" />
             <h1 className="text-xl font-bold text-white">Option Seeker</h1>
             <Tag color="blue" className="ml-2">美股</Tag>
