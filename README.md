@@ -49,25 +49,7 @@ option-seeker/
 
 ### 2. 配置环境变量
 
-**Windows 用户**（推荐通过「计算机属性」→「环境变量」配置）：
-
-```
-LONGPORT_APP_KEY=your_app_key
-LONGPORT_APP_SECRET=your_app_secret
-LONGPORT_ACCESS_TOKEN=your_access_token
-LONGPORT_REGION=cn          # 可选: cn, hk
-LONGPORT_ENABLE_OVERNIGHT=false  # 可选: true, false
-```
-
-**Linux / macOS 用户**：
-
-```bash
-export LONGPORT_APP_KEY="your_app_key"
-export LONGPORT_APP_SECRET="your_app_secret"
-export LONGPORT_ACCESS_TOKEN="your_access_token"
-export LONGPORT_REGION="cn"          # 可选: cn, hk
-export LONGPORT_ENABLE_OVERNIGHT="false"  # 可选: true, false
-```
+[长桥开放平台](https://open.longbridge.com/zh-CN/docs/getting-started)或[国内域名]([https://open.longbridge.com/zh-CN/docs/getting-started])
 
 ## 环境要求
 
