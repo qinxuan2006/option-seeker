@@ -49,7 +49,7 @@ option-seeker/
 
 ### 2. 配置环境变量
 
-[长桥开放平台](https://open.longbridge.com/zh-CN/docs/getting-started)或[国内域名]([https://open.longbridge.com/zh-CN/docs/getting-started])
+[快速开始](https://open.longbridge.com/zh-CN/docs/getting-started)或[国内域名](https://open.longbridge.com/zh-CN/docs/getting-started)
 
 ## 环境要求
 
