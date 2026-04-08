@@ -54,6 +54,7 @@ async def analyze_options(request: AnalysisRequest):
         max_annual_return=request.max_annual_return,
         min_premium=request.min_premium,
         max_premium=request.max_premium,
+        min_volume=request.min_volume,
         max_results=request.max_results
     )
 

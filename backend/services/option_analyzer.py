@@ -23,7 +23,26 @@ class OptionAnalyzer:
         self._ctx = None
         self._initialized = False
         self._init_error = None
-        
+
+    def _get_trading_session(self) -> str:
+        """Determine current trading session based on US Eastern Time"""
+        try:
+            import zoneinfo
+            utc_now = datetime.now(zoneinfo.ZoneInfo('UTC'))
+            et_now = datetime.now(zoneinfo.ZoneInfo('America/New_York'))
+            et_minutes = et_now.hour * 60 + et_now.minute
+            # Pre: 04:00-09:30 ET, Intraday: 09:30-16:00 ET, Post: 16:00-20:00 ET
+            if et_minutes < 570:  # before 9:30
+                return "premarket"
+            elif et_minutes < 960:  # before 16:00
+                return "regular"
+            elif et_minutes < 1200:  # before 20:00
+                return "afterhours"
+            else:
+                return "24h"
+        except Exception:
+            return "regular"
+
     def _get_context(self) -> Optional[QuoteContext]:
         if self._ctx is not None:
             return self._ctx
@@ -66,23 +85,29 @@ class OptionAnalyzer:
         if ctx is None:
             print(f"LongPort not initialized: {self._init_error}")
             return None
-            
+
         formatted_symbol = self._format_symbol(symbol)
-        
+
         try:
             quotes = ctx.quote([formatted_symbol])
             if not quotes:
                 return None
-            
+
             quote = quotes[0]
             current_price = float(quote.last_done) if quote.last_done else 0
-            
+            prev_close = float(quote.prev_close) if quote.prev_close else 0
+
+            # Determine trading session based on current US Eastern Time
+            trading_session = self._get_trading_session()
+
             return StockInfo(
                 symbol=symbol.upper(),
                 name=formatted_symbol,
                 current_price=current_price,
+                prev_close=prev_close,
                 currency="USD" if ".US" in formatted_symbol else "HKD",
-                exchange="US" if ".US" in formatted_symbol else "HK"
+                exchange="US" if ".US" in formatted_symbol else "HK",
+                trading_session=trading_session
             )
         except Exception as e:
             print(f"Error fetching stock info for {symbol}: {e}")
@@ -92,9 +117,9 @@ class OptionAnalyzer:
         ctx = self._get_context()
         if ctx is None:
             return None
-            
+
         formatted_symbol = self._format_symbol(symbol)
-        
+
         try:
             quotes = ctx.quote([formatted_symbol])
             if not quotes or not quotes[0].last_done:
@@ -287,6 +312,7 @@ class OptionAnalyzer:
         max_annual_return: float = 100.0,
         min_premium: float = 0.0,
         max_premium: float = 10000.0,
+        min_volume: int = 0,
         max_results: int = 500
     ) -> Tuple[Optional[float], List[OptionAnalysis], bool]:
 
@@ -379,6 +405,10 @@ class OptionAnalyzer:
                         volume = quote["volume"]
                         open_interest = quote["open_interest"]
 
+                        # 筛选成交量
+                        if volume < min_volume:
+                            continue
+
                         rec_score = self.calculate_recommendation_score(
                             annual_return, itm_prob, price_diff, volume, open_interest
                         )
@@ -438,6 +468,10 @@ class OptionAnalyzer:
 
                         volume = quote["volume"]
                         open_interest = quote["open_interest"]
+
+                        # 筛选成交量
+                        if volume < min_volume:
+                            continue
 
                         rec_score = self.calculate_recommendation_score(
                             annual_return, itm_prob, price_diff, volume, open_interest

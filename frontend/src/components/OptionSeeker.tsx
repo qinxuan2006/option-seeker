@@ -79,6 +79,7 @@ const OptionSeeker: React.FC = () => {
     maxPremium: 10000,
     minPriceDiff: 0,
     maxPriceDiff: 50,
+    minVolume: 1,
   });
 
   // 滑块边界范围（与当前值分开）
@@ -106,34 +107,35 @@ const OptionSeeker: React.FC = () => {
         priceDiff: { min: Math.max(0, minPD - 5), max: maxPD + 5 },
       });
       // 初始值位于滑块两端
-      setFilters({
+      setFilters((prev) => ({
         minAnnualReturn: Math.max(0, minAR - 20),
         maxAnnualReturn: maxAR + 20,
         minPremium: 0,
         maxPremium: Math.ceil(maxP * 1.5),
         minPriceDiff: Math.max(0, minPD - 5),
         maxPriceDiff: maxPD + 5,
-      });
+        minVolume: prev.minVolume,
+      }));
     }
   }, [options]);
 
   const filteredOptions = useMemo(() => {
+    const { minAnnualReturn, maxAnnualReturn, minPremium, maxPremium, minPriceDiff, maxPriceDiff, minVolume } = filters;
     return options.filter((opt) => {
       // 期权类型筛选
-      const typeMatch = selectedOptionTypes.includes(opt.option_type.toLowerCase());
+      if (!selectedOptionTypes.includes(opt.option_type.toLowerCase())) return false;
       // ITM/OTM 筛选
       const isITM = opt.option_type.toLowerCase() === 'call'
         ? opt.strike < opt.current_price
         : opt.strike > opt.current_price;
-      const moneyMatch = selectedMoneyTypes.includes(isITM ? 'itm' : 'otm');
-      return typeMatch && moneyMatch && (
-        opt.annual_return >= filters.minAnnualReturn &&
-        opt.annual_return <= filters.maxAnnualReturn &&
-        opt.premium >= filters.minPremium &&
-        opt.premium <= filters.maxPremium &&
-        opt.price_diff_percent >= filters.minPriceDiff &&
-        opt.price_diff_percent <= filters.maxPriceDiff
-      );
+      if (!selectedMoneyTypes.includes(isITM ? 'itm' : 'otm')) return false;
+      // 成交量筛选
+      if (minVolume > 0 && opt.volume < minVolume) return false;
+      // 其他筛选
+      if (opt.annual_return < minAnnualReturn || opt.annual_return > maxAnnualReturn) return false;
+      if (opt.premium < minPremium || opt.premium > maxPremium) return false;
+      if (opt.price_diff_percent < minPriceDiff || opt.price_diff_percent > maxPriceDiff) return false;
+      return true;
     });
   }, [options, filters, selectedOptionTypes, selectedMoneyTypes]);
 
@@ -513,7 +515,7 @@ const OptionSeeker: React.FC = () => {
             >
               <div className="space-y-4">
                 <Row gutter={[12, 12]} align="middle">
-                  <Col xs={24} sm={8} md={8}>
+                  <Col xs={24} sm={6} md={6}>
                     <div className="text-xs text-gray-400 mb-1">股票代码</div>
                     <Input
                       size="large"
@@ -524,7 +526,7 @@ const OptionSeeker: React.FC = () => {
                       onPressEnter={handleAnalyze}
                     />
                   </Col>
-                  <Col xs={24} sm={8} md={8}>
+                  <Col xs={24} sm={6} md={6}>
                     <div className="text-xs text-gray-400 mb-1">期权类型</div>
                     <Checkbox.Group
                       value={selectedOptionTypes}
@@ -532,15 +534,15 @@ const OptionSeeker: React.FC = () => {
                     >
                       <Space size="middle">
                         <Checkbox value="call">
-                          <span className="text-gray-200">看涨 (CALL)</span>
+                          <span className="text-gray-200">CALL</span>
                         </Checkbox>
                         <Checkbox value="put">
-                          <span className="text-gray-200">看跌 (PUT)</span>
+                          <span className="text-gray-200">PUT</span>
                         </Checkbox>
                       </Space>
                     </Checkbox.Group>
                   </Col>
-                  <Col xs={24} sm={8} md={8}>
+                  <Col xs={24} sm={6} md={6}>
                     <div className="text-xs text-gray-400 mb-1">价值状态</div>
                     <Checkbox.Group
                       value={selectedMoneyTypes}
@@ -548,13 +550,22 @@ const OptionSeeker: React.FC = () => {
                     >
                       <Space size="middle">
                         <Checkbox value="itm">
-                          <span className="text-gray-200">价内 (ITM)</span>
+                          <span className="text-gray-200">ITM</span>
                         </Checkbox>
                         <Checkbox value="otm">
-                          <span className="text-gray-200">价外 (OTM)</span>
+                          <span className="text-gray-200">OTM</span>
                         </Checkbox>
                       </Space>
                     </Checkbox.Group>
+                  </Col>
+                  <Col xs={24} sm={6} md={6}>
+                    <div className="text-xs text-gray-400 mb-1">成交量</div>
+                    <Checkbox
+                      checked={filters.minVolume > 0}
+                      onChange={(e) => setFilters({ ...filters, minVolume: e.target.checked ? 1 : 0 })}
+                    >
+                      <span className="text-gray-200">仅显示有成交</span>
+                    </Checkbox>
                   </Col>
                 </Row>
                 <Row gutter={[12, 12]} align="middle">
@@ -638,13 +649,29 @@ const OptionSeeker: React.FC = () => {
                 </span>
               }
               extra={
-                <Select
-                  size="small"
-                  value={period}
-                  onChange={setPeriod}
-                  options={periodOptions}
-                  style={{ width: 100 }}
-                />
+                <>
+                  {stockInfos[0]?.trading_session && (
+                    <Tag
+                      className="mr-2"
+                      color={
+                        stockInfos[0].trading_session === 'premarket' ? 'orange' :
+                        stockInfos[0].trading_session === 'afterhours' ? 'purple' :
+                        stockInfos[0].trading_session === '24h' ? 'cyan' : 'green'
+                      }
+                    >
+                      {stockInfos[0].trading_session === 'premarket' ? '盘前' :
+                       stockInfos[0].trading_session === 'afterhours' ? '盘后' :
+                       stockInfos[0].trading_session === '24h' ? '24小时' : '实时'}
+                    </Tag>
+                  )}
+                  <Select
+                    size="small"
+                    value={period}
+                    onChange={setPeriod}
+                    options={periodOptions}
+                    style={{ width: 100 }}
+                  />
+                </>
               }
             >
               {chartLoading ? (
@@ -721,6 +748,15 @@ const OptionSeeker: React.FC = () => {
                           value={latestCandle?.volume || 0}
                           formatter={(val) => formatVolume(Number(val))}
                           valueStyle={{ fontSize: '14px' }}
+                        />
+                      </Col>
+                      <Col xs={12}>
+                        <Statistic
+                          title="昨日收盘"
+                          value={stockInfos[0]?.prev_close || 0}
+                          prefix="$"
+                          precision={2}
+                          valueStyle={{ fontSize: '14px', color: '#a0a0a0' }}
                         />
                       </Col>
                     </Row>
@@ -911,8 +947,8 @@ const OptionSeeker: React.FC = () => {
                   筛选条件
                 </span>
               }>
-                <Row gutter={[24, 16]}>
-                  <Col xs={24}>
+                <Row gutter={[24, 24]} style={{ marginBottom: 24 }}>
+                  <Col xs={24} md={8}>
                     <div className="mb-2 font-medium text-gray-300">
                       期权类型
                     </div>
@@ -922,15 +958,15 @@ const OptionSeeker: React.FC = () => {
                     >
                       <Space size="middle">
                         <Checkbox value="call">
-                          <span className="text-gray-200">看涨 (CALL)</span>
+                          <span className="text-gray-200">CALL</span>
                         </Checkbox>
                         <Checkbox value="put">
-                          <span className="text-gray-200">看跌 (PUT)</span>
+                          <span className="text-gray-200">PUT</span>
                         </Checkbox>
                       </Space>
                     </Checkbox.Group>
                   </Col>
-                  <Col xs={24}>
+                  <Col xs={24} md={8}>
                     <div className="mb-2 font-medium text-gray-300">
                       价值状态
                     </div>
@@ -940,14 +976,27 @@ const OptionSeeker: React.FC = () => {
                     >
                       <Space size="middle">
                         <Checkbox value="itm">
-                          <span className="text-gray-200">价内 (ITM)</span>
+                          <span className="text-gray-200">ITM</span>
                         </Checkbox>
                         <Checkbox value="otm">
-                          <span className="text-gray-200">价外 (OTM)</span>
+                          <span className="text-gray-200">OTM</span>
                         </Checkbox>
                       </Space>
                     </Checkbox.Group>
                   </Col>
+                  <Col xs={24} md={8}>
+                    <div className="mb-2 font-medium text-gray-300">
+                      成交量
+                    </div>
+                    <Checkbox
+                      checked={filters.minVolume > 0}
+                      onChange={(e) => setFilters({ ...filters, minVolume: e.target.checked ? 1 : 0 })}
+                    >
+                      <span className="text-gray-200">仅显示有成交</span>
+                    </Checkbox>
+                  </Col>
+                </Row>
+                <Row gutter={[24, 24]} style={{ marginBottom: 24 }}>
                   <Col xs={24} md={8}>
                     <div className="mb-2 font-medium text-gray-300">
                       年化收益: {filters.minAnnualReturn}% - {filters.maxAnnualReturn}%
@@ -977,7 +1026,7 @@ const OptionSeeker: React.FC = () => {
                   </Col>
                   <Col xs={24} md={8}>
                     <div className="mb-2 font-medium text-gray-300">
-                      价差百分比（绝对值）: {filters.minPriceDiff}% - {filters.maxPriceDiff}%
+                      价差百分比: {filters.minPriceDiff}% - {filters.maxPriceDiff}%
                     </div>
                     <Slider
                       range

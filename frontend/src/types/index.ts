@@ -29,8 +29,10 @@ export interface StockInfo {
   symbol: string;
   name: string;
   current_price: number;
+  prev_close: number;
   currency: string;
   exchange: string;
+  trading_session: 'premarket' | 'afterhours' | 'regular' | '24h';
 }
 
 export interface AnalysisRequest {
@@ -45,6 +47,7 @@ export interface AnalysisRequest {
   max_annual_return: number;
   min_premium: number;
   max_premium: number;
+  min_volume: number;
   max_results: number;
 }
 
@@ -55,6 +58,7 @@ export interface FilterState {
   maxPremium: number;
   minPriceDiff: number;
   maxPriceDiff: number;
+  minVolume: number;
 }
 
 export interface Candlestick {
