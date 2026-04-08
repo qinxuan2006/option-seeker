@@ -382,7 +382,7 @@ const OptionSeeker: React.FC = () => {
     {
       title: (
         <Tooltip title="卖方年化收益率 = ((1 + 权利金/行权价) ^ (365/天数) - 1) × 100%">
-          年化收益(卖方) <InfoCircleOutlined className="ml-1" />
+          卖方年化 <InfoCircleOutlined className="ml-1" />
         </Tooltip>
       ),
       dataIndex: 'annual_return',
@@ -649,29 +649,13 @@ const OptionSeeker: React.FC = () => {
                 </span>
               }
               extra={
-                <>
-                  {stockInfos[0]?.trading_session && (
-                    <Tag
-                      className="mr-2"
-                      color={
-                        stockInfos[0].trading_session === 'premarket' ? 'orange' :
-                        stockInfos[0].trading_session === 'afterhours' ? 'purple' :
-                        stockInfos[0].trading_session === '24h' ? 'cyan' : 'green'
-                      }
-                    >
-                      {stockInfos[0].trading_session === 'premarket' ? '盘前' :
-                       stockInfos[0].trading_session === 'afterhours' ? '盘后' :
-                       stockInfos[0].trading_session === '24h' ? '24小时' : '实时'}
-                    </Tag>
-                  )}
-                  <Select
-                    size="small"
-                    value={period}
-                    onChange={setPeriod}
-                    options={periodOptions}
-                    style={{ width: 100 }}
-                  />
-                </>
+                <Select
+                  size="small"
+                  value={period}
+                  onChange={setPeriod}
+                  options={periodOptions}
+                  style={{ width: 100 }}
+                />
               }
             >
               {chartLoading ? (
@@ -692,7 +676,25 @@ const OptionSeeker: React.FC = () => {
                       </Col>
                       <Col xs={12}>
                         <Statistic
-                          title="当前价格"
+                          title={
+                            <span>
+                              当前价格
+                              {stockInfos[0]?.trading_session && (
+                                <Tag
+                                  className="ml-2"
+                                  color={
+                                    stockInfos[0].trading_session === 'premarket' ? 'orange' :
+                                    stockInfos[0].trading_session === 'afterhours' ? 'purple' :
+                                    stockInfos[0].trading_session === '24h' ? 'cyan' : 'green'
+                                  }
+                                >
+                                  {stockInfos[0].trading_session === 'premarket' ? '盘前' :
+                                   stockInfos[0].trading_session === 'afterhours' ? '盘后' :
+                                   stockInfos[0].trading_session === '24h' ? '24h' : '实时'}
+                                </Tag>
+                              )}
+                            </span>
+                          }
                           value={currentPrice}
                           prefix="$"
                           precision={2}
