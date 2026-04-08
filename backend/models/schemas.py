@@ -33,6 +33,7 @@ class AnalysisRequest(BaseModel):
     max_annual_return: float = 100.0
     min_premium: float = 0.0
     max_premium: float = 10000.0
+    min_volume: int = 0  # 最小成交量，0表示显示所有
     max_results: int = 500
 
 
@@ -67,8 +68,10 @@ class StockInfo(BaseModel):
     symbol: str
     name: str
     current_price: float
+    prev_close: float
     currency: str
     exchange: str
+    trading_session: str  # premarket / afterhours / regular / 24h
 
 
 class Candlestick(BaseModel):
@@ -94,3 +97,19 @@ class CandlestickRequest(BaseModel):
     adjust_type: str = "no_adjust"
     start_date: Optional[date] = None
     end_date: Optional[date] = None
+
+
+class PreMarketInfo(BaseModel):
+    symbol: str
+    name: str
+    last_done: float
+    prev_close: float
+    open: float
+    high: float
+    low: float
+    volume: int
+    turnover: float
+    change: float
+    change_rate: float
+    timestamp: datetime
+    trading_session: str
