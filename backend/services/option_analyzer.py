@@ -94,11 +94,54 @@ class OptionAnalyzer:
                 return None
 
             quote = quotes[0]
-            current_price = float(quote.last_done) if quote.last_done else 0
             prev_close = float(quote.prev_close) if quote.prev_close else 0
 
             # Determine trading session based on current US Eastern Time
             trading_session = self._get_trading_session()
+
+            # 获取盘前盘后行情
+            pre_market_quote = None
+            post_market_quote = None
+
+            if hasattr(quote, 'pre_market_quote') and quote.pre_market_quote:
+                pm = quote.pre_market_quote
+                ts = pm.timestamp
+                if isinstance(ts, datetime):
+                    ts = int(ts.timestamp())
+                elif not isinstance(ts, int):
+                    ts = 0
+                pre_market_quote = {
+                    "last_done": float(pm.last_done) if pm.last_done else 0,
+                    "high": float(pm.high) if pm.high else 0,
+                    "low": float(pm.low) if pm.low else 0,
+                    "volume": int(pm.volume) if pm.volume else 0,
+                    "turnover": float(pm.turnover) if pm.turnover else 0,
+                    "timestamp": ts,
+                }
+
+            if hasattr(quote, 'post_market_quote') and quote.post_market_quote:
+                pm = quote.post_market_quote
+                ts = pm.timestamp
+                if isinstance(ts, datetime):
+                    ts = int(ts.timestamp())
+                elif not isinstance(ts, int):
+                    ts = 0
+                post_market_quote = {
+                    "last_done": float(pm.last_done) if pm.last_done else 0,
+                    "high": float(pm.high) if pm.high else 0,
+                    "low": float(pm.low) if pm.low else 0,
+                    "volume": int(pm.volume) if pm.volume else 0,
+                    "turnover": float(pm.turnover) if pm.turnover else 0,
+                    "timestamp": ts,
+                }
+
+            # 根据交易时段确定当前价格
+            if trading_session == "premarket" and pre_market_quote and pre_market_quote["last_done"] > 0:
+                current_price = pre_market_quote["last_done"]
+            elif trading_session == "afterhours" and post_market_quote and post_market_quote["last_done"] > 0:
+                current_price = post_market_quote["last_done"]
+            else:
+                current_price = float(quote.last_done) if quote.last_done else 0
 
             return StockInfo(
                 symbol=symbol.upper(),
@@ -107,7 +150,9 @@ class OptionAnalyzer:
                 prev_close=prev_close,
                 currency="USD" if ".US" in formatted_symbol else "HKD",
                 exchange="US" if ".US" in formatted_symbol else "HK",
-                trading_session=trading_session
+                trading_session=trading_session,
+                pre_market_quote=pre_market_quote,
+                post_market_quote=post_market_quote
             )
         except Exception as e:
             print(f"Error fetching stock info for {symbol}: {e}")

@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import date, datetime
 from enum import Enum
 
@@ -72,6 +72,9 @@ class StockInfo(BaseModel):
     currency: str
     exchange: str
     trading_session: str  # premarket / afterhours / regular / 24h
+    # 盘前盘后详细行情
+    pre_market_quote: Optional[Dict[str, Any]] = None
+    post_market_quote: Optional[Dict[str, Any]] = None
 
 
 class Candlestick(BaseModel):

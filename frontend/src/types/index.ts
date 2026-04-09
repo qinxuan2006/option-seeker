@@ -25,6 +25,15 @@ export interface AnalysisResponse {
   truncated?: boolean;
 }
 
+export interface MarketQuote {
+  last_done: number;
+  high: number;
+  low: number;
+  volume: number;
+  turnover: number;
+  timestamp: number;
+}
+
 export interface StockInfo {
   symbol: string;
   name: string;
@@ -33,6 +42,8 @@ export interface StockInfo {
   currency: string;
   exchange: string;
   trading_session: 'premarket' | 'afterhours' | 'regular' | '24h';
+  pre_market_quote?: MarketQuote;
+  post_market_quote?: MarketQuote;
 }
 
 export interface AnalysisRequest {

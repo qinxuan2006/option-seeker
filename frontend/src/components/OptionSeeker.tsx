@@ -695,7 +695,7 @@ const OptionSeeker: React.FC = () => {
                               )}
                             </span>
                           }
-                          value={currentPrice}
+                          value={stockInfos[0]?.current_price || currentPrice}
                           prefix="$"
                           precision={2}
                           valueStyle={{ color: '#22c55e', fontSize: '16px' }}
@@ -729,7 +729,13 @@ const OptionSeeker: React.FC = () => {
                       <Col xs={12}>
                         <Statistic
                           title="最高"
-                          value={latestCandle?.high || 0}
+                          value={
+                            stockInfos[0]?.trading_session === 'premarket' && stockInfos[0]?.pre_market_quote
+                              ? stockInfos[0].pre_market_quote.high
+                              : stockInfos[0]?.trading_session === 'afterhours' && stockInfos[0]?.post_market_quote
+                              ? stockInfos[0].post_market_quote.high
+                              : latestCandle?.high || 0
+                          }
                           prefix="$"
                           precision={2}
                           valueStyle={{ color: '#ef4444', fontSize: '14px' }}
@@ -738,7 +744,13 @@ const OptionSeeker: React.FC = () => {
                       <Col xs={12}>
                         <Statistic
                           title="最低"
-                          value={latestCandle?.low || 0}
+                          value={
+                            stockInfos[0]?.trading_session === 'premarket' && stockInfos[0]?.pre_market_quote
+                              ? stockInfos[0].pre_market_quote.low
+                              : stockInfos[0]?.trading_session === 'afterhours' && stockInfos[0]?.post_market_quote
+                              ? stockInfos[0].post_market_quote.low
+                              : latestCandle?.low || 0
+                          }
                           prefix="$"
                           precision={2}
                           valueStyle={{ color: '#22c55e', fontSize: '14px' }}
@@ -747,7 +759,13 @@ const OptionSeeker: React.FC = () => {
                       <Col xs={12}>
                         <Statistic
                           title="成交量"
-                          value={latestCandle?.volume || 0}
+                          value={
+                            stockInfos[0]?.trading_session === 'premarket' && stockInfos[0]?.pre_market_quote
+                              ? stockInfos[0].pre_market_quote.volume
+                              : stockInfos[0]?.trading_session === 'afterhours' && stockInfos[0]?.post_market_quote
+                              ? stockInfos[0].post_market_quote.volume
+                              : latestCandle?.volume || 0
+                          }
                           formatter={(val) => formatVolume(Number(val))}
                           valueStyle={{ fontSize: '14px' }}
                         />
