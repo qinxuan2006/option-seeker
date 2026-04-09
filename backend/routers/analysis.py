@@ -44,10 +44,8 @@ async def get_candlesticks(
 async def analyze_options(request: AnalysisRequest):
     current_price, options, truncated = option_analyzer.analyze_options(
         symbol=request.symbol.upper(),
-        min_call_price_diff=request.min_call_price_diff,
-        max_call_price_diff=request.max_call_price_diff,
-        min_put_price_diff=request.min_put_price_diff,
-        max_put_price_diff=request.max_put_price_diff,
+        min_price_diff=request.min_price_diff,
+        max_price_diff=request.max_price_diff,
         min_expiry_days=request.min_expiry_days,
         max_expiry_days=request.max_expiry_days,
         min_annual_return=request.min_annual_return,

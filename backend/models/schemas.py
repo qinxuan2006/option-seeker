@@ -23,10 +23,8 @@ class PeriodType(str, Enum):
 
 class AnalysisRequest(BaseModel):
     symbol: str
-    min_call_price_diff: float = 0.0
-    max_call_price_diff: float = 50.0
-    min_put_price_diff: float = 0.0
-    max_put_price_diff: float = 50.0
+    min_price_diff: float = -50.0  # 支持负值（实值）
+    max_price_diff: float = 50.0
     min_expiry_days: int = 0
     max_expiry_days: int = 180
     min_annual_return: float = 0.0
