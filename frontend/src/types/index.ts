@@ -48,10 +48,8 @@ export interface StockInfo {
 
 export interface AnalysisRequest {
   symbol: string;
-  min_call_price_diff: number;
-  max_call_price_diff: number;
-  min_put_price_diff: number;
-  max_put_price_diff: number;
+  min_price_diff: number;
+  max_price_diff: number;
   min_expiry_days: number;
   max_expiry_days: number;
   min_annual_return: number;

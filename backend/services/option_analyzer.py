@@ -183,13 +183,14 @@ class OptionAnalyzer:
 
         try:
             expiry_dates = ctx.option_chain_expiry_date_list(formatted_symbol)
-            # 转换为字符串格式 "YYYYMMDD"
+            # API返回格式为 "YYMMDD"（如 "260429" 表示 2026年4月29日）
             result = []
             for d in (expiry_dates or []):
                 if isinstance(d, date):
-                    result.append(d.strftime("%Y%m%d"))
+                    result.append(d.strftime("%y%m%d"))
                 elif isinstance(d, str):
-                    result.append(d.replace("-", ""))
+                    # 直接使用字符串，确保是 YYMMDD 格式
+                    result.append(d.replace("-", "").zfill(6))
                 else:
                     result.append(str(d))
             return result
@@ -205,9 +206,10 @@ class OptionAnalyzer:
         formatted_symbol = self._format_symbol(symbol)
         
         try:
-            year = int(expiry_date[:4])
-            month = int(expiry_date[4:6])
-            day = int(expiry_date[6:8])
+            # expiry_date 格式为 "YYMMDD"（如 "260429"）
+            year = 2000 + int(expiry_date[:2])
+            month = int(expiry_date[2:4])
+            day = int(expiry_date[4:6])
             expiry = date(year, month, day)
             
             strike_info = ctx.option_chain_info_by_date(formatted_symbol, expiry)
@@ -295,16 +297,23 @@ class OptionAnalyzer:
             return 0.0
 
     def calculate_price_diff_percent(
-        self, 
-        current_price: float, 
-        strike: float
+        self,
+        current_price: float,
+        strike: float,
+        option_type: str
     ) -> float:
         if current_price <= 0:
             return 0.0
-        
-        diff = abs(current_price - strike)
+
+        # 有符号价差百分比
+        # CALL: 负值=ITM（实值），正值=OTM（虚值）=> diff = strike - current_price
+        # PUT:  正值=ITM（实值），负值=OTM（虚值）=> diff = current_price - strike
+        if option_type.lower() == "put":
+            diff = current_price - strike
+        else:
+            diff = strike - current_price
         percent = (diff / current_price) * 100
-        
+
         return percent
 
     def calculate_recommendation_score(
@@ -347,10 +356,8 @@ class OptionAnalyzer:
     def analyze_options(
         self,
         symbol: str,
-        min_call_price_diff: float = 0.0,
-        max_call_price_diff: float = 50.0,
-        min_put_price_diff: float = 0.0,
-        max_put_price_diff: float = 50.0,
+        min_price_diff: float = -50.0,
+        max_price_diff: float = 50.0,
         min_expiry_days: int = 0,
         max_expiry_days: int = 180,
         min_annual_return: float = 0.0,
@@ -387,9 +394,10 @@ class OptionAnalyzer:
 
             for expiry_str in expiry_dates:
                 try:
-                    year = int(expiry_str[:4])
-                    month = int(expiry_str[4:6])
-                    day = int(expiry_str[6:8])
+                    # expiry_str 格式为 "YYMMDD"（如 "260429"）
+                    year = 2000 + int(expiry_str[:2])
+                    month = int(expiry_str[2:4])
+                    day = int(expiry_str[4:6])
                     expiry_date = date(year, month, day)
 
                     if expiry_date < min_expiry or expiry_date > max_expiry:
@@ -426,10 +434,10 @@ class OptionAnalyzer:
                             continue
 
                         strike = item["strike_price"]
-                        price_diff = self.calculate_price_diff_percent(current_price, strike)
+                        price_diff = self.calculate_price_diff_percent(current_price, strike, "call")
 
-                        # 筛选CALL的价差
-                        if price_diff < min_call_price_diff or price_diff > max_call_price_diff:
+                        # 筛选价差（统一过滤）
+                        if price_diff < min_price_diff or price_diff > max_price_diff:
                             continue
 
                         iv = quote["implied_volatility"]
@@ -490,10 +498,10 @@ class OptionAnalyzer:
                             continue
 
                         strike = item["strike_price"]
-                        price_diff = self.calculate_price_diff_percent(current_price, strike)
+                        price_diff = self.calculate_price_diff_percent(current_price, strike, "put")
 
-                        # 筛选PUT的价差
-                        if price_diff < min_put_price_diff or price_diff > max_put_price_diff:
+                        # 筛选价差（统一过滤）
+                        if price_diff < min_price_diff or price_diff > max_price_diff:
                             continue
 
                         iv = quote["implied_volatility"]

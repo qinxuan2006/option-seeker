@@ -55,8 +55,6 @@ const OptionSeeker: React.FC = () => {
   const [symbol, setSymbol] = useState('');
   const [minExpiryDays, setMinExpiryDays] = useState(30);
   const [maxExpiryDays, setMaxExpiryDays] = useState(45);
-  const [maxCallPriceDiff, setMaxCallPriceDiff] = useState(10);
-  const [maxPutPriceDiff, setMaxPutPriceDiff] = useState(10);
   const [selectedOptionTypes, setSelectedOptionTypes] = useState<string[]>(['call', 'put']);
   const [selectedMoneyTypes, setSelectedMoneyTypes] = useState<string[]>(['itm', 'otm']);
   const [loading, setLoading] = useState(false);
@@ -77,8 +75,8 @@ const OptionSeeker: React.FC = () => {
     maxAnnualReturn: 100,
     minPremium: 0,
     maxPremium: 10000,
-    minPriceDiff: 0,
-    maxPriceDiff: 50,
+    minPriceDiff: 5,
+    maxPriceDiff: 25,
     minVolume: 1,
   });
 
@@ -86,38 +84,36 @@ const OptionSeeker: React.FC = () => {
   const [sliderRanges, setSliderRanges] = useState({
     annualReturn: { min: 0, max: 100 },
     premium: { min: 0, max: 10000 },
-    priceDiff: { min: 0, max: 50 },
+    priceDiff: { min: -50, max: 50 },
   });
 
-  // 期权数据变化时自动更新筛选范围和滑块边界
+  // 标记是否已初始化过滑块范围（仅首次根据数据设置）
+  const [sliderInitialized, setSliderInitialized] = useState(false);
+
+  // 期权数据变化时自动更新筛选范围和滑块边界（仅首次）
   useEffect(() => {
-    if (options.length > 0) {
+    if (options.length > 0 && !sliderInitialized) {
+      // 年化和权利金根据数据动态设置范围和初始值，价差根据条件设置范围和初始值
       const annualReturns = options.map(o => o.annual_return);
       const premiums = options.map(o => o.premium);
-      const priceDiffs = options.map(o => o.price_diff_percent);
       const minAR = Math.floor(Math.min(...annualReturns));
       const maxAR = Math.ceil(Math.max(...annualReturns));
       const maxP = Math.ceil(Math.max(...premiums));
-      const minPD = Math.floor(Math.min(...priceDiffs));
-      const maxPD = Math.ceil(Math.max(...priceDiffs));
-      // 滑块边界比数据范围稍大
       setSliderRanges({
-        annualReturn: { min: Math.max(0, minAR - 20), max: maxAR + 20 },
-        premium: { min: 0, max: Math.ceil(maxP * 1.5) },
-        priceDiff: { min: Math.max(0, minPD - 5), max: maxPD + 5 },
+        annualReturn: { min: Math.max(0, minAR), max: maxAR },
+        premium: { min: 0, max: maxP },
+        priceDiff: { min: filters.minPriceDiff, max: filters.maxPriceDiff },
       });
-      // 初始值位于滑块两端
-      setFilters((prev) => ({
-        minAnnualReturn: Math.max(0, minAR - 20),
-        maxAnnualReturn: maxAR + 20,
+      setFilters(prev => ({
+        ...prev,
+        minAnnualReturn: Math.max(0, minAR),
+        maxAnnualReturn: maxAR,
         minPremium: 0,
-        maxPremium: Math.ceil(maxP * 1.5),
-        minPriceDiff: Math.max(0, minPD - 5),
-        maxPriceDiff: maxPD + 5,
-        minVolume: prev.minVolume,
+        maxPremium: maxP,
       }));
+      setSliderInitialized(true);
     }
-  }, [options]);
+  }, [options, sliderInitialized]);
 
   const filteredOptions = useMemo(() => {
     const { minAnnualReturn, maxAnnualReturn, minPremium, maxPremium, minPriceDiff, maxPriceDiff, minVolume } = filters;
@@ -198,10 +194,8 @@ const OptionSeeker: React.FC = () => {
       // 获取期权数据
       const response = await analysisApi.analyzeOptions({
         symbol: symbol.toUpperCase(),
-        min_call_price_diff: 0,
-        max_call_price_diff: maxCallPriceDiff,
-        min_put_price_diff: 0,
-        max_put_price_diff: maxPutPriceDiff,
+        min_price_diff: filters.minPriceDiff,
+        max_price_diff: filters.maxPriceDiff,
         min_expiry_days: minExpiryDays,
         max_expiry_days: maxExpiryDays,
         min_annual_return: 0,
@@ -569,29 +563,37 @@ const OptionSeeker: React.FC = () => {
                   </Col>
                 </Row>
                 <Row gutter={[12, 12]} align="middle">
-                  <Col xs={6} sm={4}>
-                    <div className="text-xs text-gray-400 mb-1">PUT价差%</div>
-                    <InputNumber
-                      size="large"
-                      min={0}
-                      max={100}
-                      value={maxPutPriceDiff}
-                      onChange={(v) => setMaxPutPriceDiff(v || 0)}
-                      addonAfter="%"
-                      className="w-full"
-                    />
-                  </Col>
-                  <Col xs={6} sm={4}>
-                    <div className="text-xs text-gray-400 mb-1">CALL价差%</div>
-                    <InputNumber
-                      size="large"
-                      min={0}
-                      max={100}
-                      value={maxCallPriceDiff}
-                      onChange={(v) => setMaxCallPriceDiff(v || 0)}
-                      addonAfter="%"
-                      className="w-full"
-                    />
+                  <Col xs={12} sm={8}>
+                    <div className="text-xs text-gray-400 mb-1">价差% (负值=ITM，正值=OTM)</div>
+                    <Space className="w-full">
+                      <InputNumber
+                        size="large"
+                        min={-50}
+                        max={50}
+                        value={filters.minPriceDiff}
+                        onChange={(v) => {
+                          const newMin = v ?? 5;
+                          setFilters({ ...filters, minPriceDiff: newMin });
+                          setSliderRanges(prev => ({ ...prev, priceDiff: { min: newMin, max: filters.maxPriceDiff } }));
+                        }}
+                        addonAfter="%"
+                        className="w-full"
+                      />
+                      <span className="text-gray-400">至</span>
+                      <InputNumber
+                        size="large"
+                        min={0}
+                        max={100}
+                        value={filters.maxPriceDiff}
+                        onChange={(v) => {
+                          const newMax = v ?? 25;
+                          setFilters({ ...filters, maxPriceDiff: newMax });
+                          setSliderRanges(prev => ({ ...prev, priceDiff: { min: filters.minPriceDiff, max: newMax } }));
+                        }}
+                        addonAfter="%"
+                        className="w-full"
+                      />
+                    </Space>
                   </Col>
                   <Col xs={6} sm={4}>
                     <div className="text-xs text-gray-400 mb-1">最短天数</div>
@@ -1046,7 +1048,8 @@ const OptionSeeker: React.FC = () => {
                   </Col>
                   <Col xs={24} md={8}>
                     <div className="mb-2 font-medium text-gray-300">
-                      价差百分比: {filters.minPriceDiff}% - {filters.maxPriceDiff}%
+                      价差%: {filters.minPriceDiff}% ~ {filters.maxPriceDiff}%
+                      <span className="text-xs text-gray-500 ml-2">(CALL: 负=ITM正=OTM | PUT: 正=ITM负=OTM)</span>
                     </div>
                     <Slider
                       range
