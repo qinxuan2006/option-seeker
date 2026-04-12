@@ -56,7 +56,7 @@ LONGPORT_APP_KEY=your_app_key
 LONGPORT_APP_SECRET=your_app_secret
 LONGPORT_ACCESS_TOKEN=your_access_token
 LONGPORT_REGION=cn          # 可选: cn, hk
-LONGPORT_ENABLE_OVERNIGHT=false  # 可选: true, false
+LONGPORT_ENABLE_OVERNIGHT=true  # 可选: true, false
 ```
 
 **Linux / macOS 用户**：
@@ -66,7 +66,7 @@ export LONGPORT_APP_KEY="your_app_key"
 export LONGPORT_APP_SECRET="your_app_secret"
 export LONGPORT_ACCESS_TOKEN="your_access_token"
 export LONGPORT_REGION="cn"          # 可选: cn, hk
-export LONGPORT_ENABLE_OVERNIGHT="false"  # 可选: true, false
+export LONGPORT_ENABLE_OVERNIGHT="true"  # 可选: true, false
 ```
 
 ## 环境要求
