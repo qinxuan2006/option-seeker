@@ -73,6 +73,10 @@ class StockInfo(BaseModel):
     # 盘前盘后详细行情
     pre_market_quote: Optional[Dict[str, Any]] = None
     post_market_quote: Optional[Dict[str, Any]] = None
+    # 夜盘行情
+    overnight_quote: Optional[Dict[str, Any]] = None
+    # 最新报价（用于显示high/low/vol）
+    latest_quote: Optional[Dict[str, Any]] = None
 
 
 class Candlestick(BaseModel):

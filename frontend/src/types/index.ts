@@ -44,6 +44,8 @@ export interface StockInfo {
   trading_session: 'premarket' | 'afterhours' | 'regular' | '24h';
   pre_market_quote?: MarketQuote;
   post_market_quote?: MarketQuote;
+  overnight_quote?: MarketQuote;
+  latest_quote?: MarketQuote;
 }
 
 export interface AnalysisRequest {

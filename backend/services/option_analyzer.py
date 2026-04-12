@@ -8,7 +8,7 @@ from scipy.stats import norm
 from models.schemas import OptionAnalysis, StockInfo, OptionType, Candlestick, CandlestickResponse, PeriodType
 
 try:
-    from longport.openapi import Config, QuoteContext, Period, AdjustType
+    from longport.openapi import Config, QuoteContext, Period, AdjustType, TradeSession
     LONGPORT_AVAILABLE = True
 except ImportError:
     LONGPORT_AVAILABLE = False
@@ -23,24 +23,117 @@ class OptionAnalyzer:
         self._ctx = None
         self._initialized = False
         self._init_error = None
+        self._trading_days_cache = None
+        self._trading_days_date = None
+        self._trading_sessions_cache = None
+        self._trading_sessions_date = None
+
+    def _time_to_minutes(self, time_val) -> int:
+        """Convert time string 'hh:mm:ss' or datetime.time to minutes since midnight"""
+        if isinstance(time_val, str):
+            parts = time_val.split(":")
+            return int(parts[0]) * 60 + int(parts[1])
+        else:
+            # datetime.time object
+            return time_val.hour * 60 + time_val.minute
+
+    def _is_us_trading_day(self) -> bool:
+        """Check if today is a US trading day, cached for the day"""
+        from longport.openapi import Market
+
+        today = date.today()
+        if self._trading_days_cache and self._trading_days_date == today:
+            return self._trading_days_cache
+
+        ctx = self._get_context()
+        if ctx is None:
+            return True  # Assume trading day if API fails
+
+        try:
+            yesterday = today - timedelta(days=1)
+            tomorrow = today + timedelta(days=1)
+            result = ctx.trading_days(Market.US, yesterday, tomorrow)
+            trading_days_str = [d.strftime('%y%m%d') for d in result.trading_days]
+            today_str = today.strftime('%y%m%d')
+            is_trading = today_str in trading_days_str
+            # Cache for the day
+            self._trading_days_cache = is_trading
+            self._trading_days_date = today
+            return is_trading
+        except Exception as e:
+            print(f"Error fetching trading days: {e}")
+            return True  # Assume trading day if API fails
+
+    def _get_us_trading_sessions(self) -> Optional[List[dict]]:
+        """Fetch US trading sessions from API and cache for the day"""
+        today = date.today()
+        if self._trading_sessions_cache and self._trading_sessions_date == today:
+            return self._trading_sessions_cache
+
+        ctx = self._get_context()
+        if ctx is None:
+            return None
+
+        try:
+            sessions = ctx.trading_session()
+            us_sessions = []
+            for s in sessions:
+                if str(s.market) == "Market.US":
+                    for session in s.trade_sessions:
+                        ts = session.trade_session
+                        us_sessions.append({
+                            "beg_minutes": self._time_to_minutes(session.begin_time),
+                            "end_minutes": self._time_to_minutes(session.end_time),
+                            "trade_session": ts
+                        })
+            # Cache until end of day
+            self._trading_sessions_cache = us_sessions
+            self._trading_sessions_date = today
+            return us_sessions
+        except Exception as e:
+            print(f"Error fetching trading sessions: {e}")
+            return None
 
     def _get_trading_session(self) -> str:
-        """Determine current trading session based on US Eastern Time"""
+        """Determine current trading session based on US trading sessions from API"""
+        # If today is not a trading day, return afterhours (use prev_close)
+        if not self._is_us_trading_day():
+            return "afterhours"
+
         try:
             import zoneinfo
-            utc_now = datetime.now(zoneinfo.ZoneInfo('UTC'))
             et_now = datetime.now(zoneinfo.ZoneInfo('America/New_York'))
             et_minutes = et_now.hour * 60 + et_now.minute
-            # Pre: 04:00-09:30 ET, Intraday: 09:30-16:00 ET, Post: 16:00-20:00 ET
-            if et_minutes < 570:  # before 9:30
-                return "premarket"
-            elif et_minutes < 960:  # before 16:00
-                return "regular"
-            elif et_minutes < 1200:  # before 20:00
-                return "afterhours"
-            else:
+
+            sessions = self._get_us_trading_sessions()
+            if sessions:
+                for session in sessions:
+                    beg = session["beg_minutes"]
+                    end = session["end_minutes"]
+                    session_type = session["trade_session"]
+                    if beg <= et_minutes < end:
+                        if session_type == TradeSession.Pre:
+                            return "premarket"
+                        elif session_type == TradeSession.Post:
+                            return "afterhours"
+                        elif session_type == TradeSession.Overnight:
+                            return "24h"
+                        else:
+                            return "regular"
+                # If time doesn't match any session, return 24h
                 return "24h"
-        except Exception:
+            else:
+                # Fallback to time-based logic if API fails
+                if et_minutes < 570:
+                    return "premarket"
+                elif et_minutes < 960:
+                    return "regular"
+                elif et_minutes < 1200:
+                    return "afterhours"
+                else:
+                    return "24h"
+        except Exception as e:
+            print(f"Error determining trading session: {e}")
             return "regular"
 
     def _get_context(self) -> Optional[QuoteContext]:
@@ -135,13 +228,56 @@ class OptionAnalyzer:
                     "timestamp": ts,
                 }
 
-            # 根据交易时段确定当前价格
-            if trading_session == "premarket" and pre_market_quote and pre_market_quote["last_done"] > 0:
-                current_price = pre_market_quote["last_done"]
-            elif trading_session == "afterhours" and post_market_quote and post_market_quote["last_done"] > 0:
-                current_price = post_market_quote["last_done"]
+            # 获取夜盘行情
+            overnight_quote = None
+            if hasattr(quote, 'overnight_quote') and quote.overnight_quote:
+                oq = quote.overnight_quote
+                ts = oq.timestamp
+                if isinstance(ts, datetime):
+                    ts = int(ts.timestamp())
+                elif not isinstance(ts, int):
+                    ts = 0
+                overnight_quote = {
+                    "last_done": float(oq.last_done) if oq.last_done else 0,
+                    "high": float(oq.high) if oq.high else 0,
+                    "low": float(oq.low) if oq.low else 0,
+                    "volume": int(oq.volume) if oq.volume else 0,
+                    "turnover": float(oq.turnover) if oq.turnover else 0,
+                    "timestamp": ts,
+                }
+
+            # 根据时间戳选择最新价格
+            def get_quote_timestamp(q):
+                if isinstance(q, dict):
+                    return q.get("timestamp", 0)
+                return 0
+
+            # 收集所有有效报价及其信息
+            all_quotes = []
+            if quote.last_done:
+                ts = quote.timestamp
+                if isinstance(ts, datetime):
+                    ts = int(ts.timestamp())
+                elif not isinstance(ts, int):
+                    ts = 0
+                all_quotes.append(("regular", ts, float(quote.last_done), None))
+
+            if pre_market_quote and pre_market_quote["last_done"] > 0:
+                all_quotes.append(("premarket", pre_market_quote["timestamp"], pre_market_quote["last_done"], pre_market_quote))
+
+            if post_market_quote and post_market_quote["last_done"] > 0:
+                all_quotes.append(("afterhours", post_market_quote["timestamp"], post_market_quote["last_done"], post_market_quote))
+
+            if overnight_quote and overnight_quote["last_done"] > 0:
+                all_quotes.append(("24h", overnight_quote["timestamp"], overnight_quote["last_done"], overnight_quote))
+
+            # 按时间戳排序，选择最新的
+            if all_quotes:
+                all_quotes.sort(key=lambda x: x[1], reverse=True)
+                trading_session, _, current_price, latest_quote_data = all_quotes[0]
             else:
-                current_price = float(quote.last_done) if quote.last_done else 0
+                current_price = prev_close
+                latest_quote_data = None
 
             return StockInfo(
                 symbol=symbol.upper(),
@@ -152,7 +288,9 @@ class OptionAnalyzer:
                 exchange="US" if ".US" in formatted_symbol else "HK",
                 trading_session=trading_session,
                 pre_market_quote=pre_market_quote,
-                post_market_quote=post_market_quote
+                post_market_quote=post_market_quote,
+                overnight_quote=overnight_quote,
+                latest_quote=latest_quote_data
             )
         except Exception as e:
             print(f"Error fetching stock info for {symbol}: {e}")
